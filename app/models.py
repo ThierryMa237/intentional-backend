@@ -11,6 +11,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     phone = Column(String(20), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    hashed_password = Column(String(255), nullable=False)
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
