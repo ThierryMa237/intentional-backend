@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16
@@ -8,7 +6,7 @@ services:
       POSTGRES_PASSWORD: secret
       POSTGRES_DB: intentional
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +22,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:secret@db:5432/intentional
-      SECRET_KEY: un-secret-aleatoire-a-changer-en-production
+      SECRET_KEY: ${SECRET_KEY:-dev-only-cle-locale-a-ne-jamais-utiliser-en-production}
     depends_on:
       db:
         condition: service_healthy
