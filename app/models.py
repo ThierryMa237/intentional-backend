@@ -1,8 +1,15 @@
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import Base
+
+
+def utcnow() -> datetime:
+    """Heure UTC sans fuseau (les colonnes DateTime sont naïves, en UTC)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -10,11 +17,9 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     hashed_password = Column(String(255), nullable=False)
 
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
 
 class Hangout(Base):
     __tablename__ = "hangouts"
@@ -24,9 +29,25 @@ class Hangout(Base):
     title = Column(String(200), nullable=False)
     status = Column(String(20), default="pending")  # pending, confirmed, cancelled
     confirmed_slot = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     creator = relationship("User")
+    participants = relationship(
+        "HangoutParticipant", back_populates="hangout", cascade="all, delete-orphan"
+    )
+
+
+class HangoutParticipant(Base):
+    __tablename__ = "hangout_participants"
+    __table_args__ = (UniqueConstraint("hangout_id", "user_id", name="uq_hangout_user"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    hangout_id = Column(UUID(as_uuid=True), ForeignKey("hangouts.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    joined_at = Column(DateTime, default=utcnow)
+
+    hangout = relationship("Hangout", back_populates="participants")
+    user = relationship("User")
 
 
 class Availability(Base):

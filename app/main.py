@@ -4,7 +4,22 @@ from app.database import engine, Base, get_db
 from app import models, schemas, auth
 from app.routes import hangouts
 
+from sqlalchemy import text
+
 Base.metadata.create_all(bind=engine)
+
+# Rattrapage (idempotent) : les hangouts créés avant l'ajout de la table
+# hangout_participants doivent avoir leur créateur comme participant.
+with engine.begin() as conn:
+    conn.execute(text("""
+        INSERT INTO hangout_participants (id, hangout_id, user_id, joined_at)
+        SELECT gen_random_uuid(), h.id, h.creator_id, h.created_at
+        FROM hangouts h
+        WHERE NOT EXISTS (
+            SELECT 1 FROM hangout_participants p
+            WHERE p.hangout_id = h.id AND p.user_id = h.creator_id
+        )
+    """))
 
 from fastapi.security import HTTPBearer
 from fastapi.openapi.utils import get_openapi
@@ -55,7 +70,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 @app.post("/login", response_model=schemas.Token)
-def login(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(
         models.User.phone == user.phone
     ).first()
